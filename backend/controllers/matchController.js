@@ -15,7 +15,10 @@ const suggestMatches = async (req, res) => {
     const oppositeGender = targetCustomer.gender === 'Male' ? 'Female' : 'Male';
 
     // Find all potential candidates of opposite gender
-    const allCandidates = await Customer.find({ gender: oppositeGender });
+    const allCandidates = await Customer.find({ 
+      gender: oppositeGender,
+      statusTag: { $in: ['Searching', 'New Lead'] }
+    });
 
     // Run local engine — returns { candidate, score, reason, breakdown }
     let topMatches = getTopMatches(
@@ -31,8 +34,8 @@ const suggestMatches = async (req, res) => {
       topMatches = topMatches.map(localMatch => {
         const aiData = aiRankings.find(r => r.candidateId === localMatch.candidate._id.toString());
         if (aiData) {
-          // Weight: 65% Local Algo, 35% AI (prevents AI variance from wildly skewing stable local scores)
-          localMatch.score = Math.round((localMatch.score * 0.65) + (aiData.aiScore * 0.35));
+          // Weight: 90% Local Algo, 10% AI
+          localMatch.score = Math.round((localMatch.score * 0.90) + (aiData.aiScore * 0.10));
           // Prepend the AI's custom reasoning
           localMatch.reason = `[AI Analysis]: ${aiData.aiReason} | [Local]: ${localMatch.reason}`;
         }

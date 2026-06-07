@@ -361,8 +361,32 @@ const getTopMatches = (targetCustomer, allProfiles, topN = 10) => {
   const scored = allProfiles
     .filter(p => p._id?.toString() !== targetCustomer._id?.toString()) // exclude self
     .map(candidate => {
-      const { score, reason, breakdown, isDealbreaker } = calculateMatchScore(targetCustomer, candidate);
-      return { candidate, score, reason, breakdown, isDealbreaker };
+      // 1. Score Target -> Candidate
+      const tToC = calculateMatchScore(targetCustomer, candidate);
+      
+      // 2. Score Candidate -> Target
+      const cToT = calculateMatchScore(candidate, targetCustomer);
+
+      if (tToC.isDealbreaker || cToT.isDealbreaker) {
+        return { 
+          candidate, 
+          score: 0, 
+          reason: tToC.isDealbreaker ? tToC.reason : cToT.reason, 
+          breakdown: {}, 
+          isDealbreaker: true 
+        };
+      }
+
+      // 3. Average the two-way score
+      const finalScore = Math.round((tToC.score + cToT.score) / 2);
+
+      return { 
+        candidate, 
+        score: finalScore, 
+        reason: tToC.reason, // Use the perspective of the target for the UI
+        breakdown: tToC.breakdown, // Use target's breakdown for the UI
+        isDealbreaker: false 
+      };
     })
     .filter(m => !m.isDealbreaker); // Filter out hard dealbreakers immediately
 
