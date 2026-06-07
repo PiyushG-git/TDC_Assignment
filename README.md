@@ -1,91 +1,119 @@
 # TDC Matchmaker Dashboard MVP
 
-This is an MVP for the internal TDC Matchmaker Dashboard, built with the MERN stack and AI integrations.
+A production-quality internal CRM and matching engine built for the professional matchmaking consultants at The Date Crew (TDC). This application allows matchmakers to manage high-end clientele, track their journey, and leverage a sophisticated, culturally-aware, hybrid AI matching algorithm to suggest the best potential partners.
 
-## Tech Choices
-- **Frontend**: React (Vite), Tailwind CSS v4, React Router, Recharts, Framer Motion. Chosen for high performance, modern premium UI capabilities, and rapid development.
-- **Backend**: Node.js, Express, MongoDB (Mongoose). Chosen for scalable JSON handling, flexible schema (for complex biodata), and robust ecosystem.
-- **AI Integration**: Google Gemini API via `@google/genai`. Chosen for fast, intelligent summarization, contextual matchmaking reasoning, and generating personalized introductions.
-
-## Matching Logic
-The custom Matching Engine (`backend/services/matchingEngine.js`) calculates a compatibility score (0-100) using realistic matrimonial heuristics:
-- **Male Customers**: Scored higher for women who are younger or same age, shorter, and earn less or equal.
-- **Female Customers**: Scored higher for men who are older or same age, taller, and earn equal or more.
-- **Universal Scoring**: Points are added for matching views on children, relocation preferences, city match, religion, and diet preference. 
-- Top 10 matches are returned, sorted by highest score.
-
-## AI Usage
-1. **AI Profile Summary**: Automatically generates a concise 1-sentence highlight reel for each profile when viewed.
-2. **AI Compatibility Analysis**: Can compare two profiles and output a JSON schema with strengths, concerns, and a score.
-3. **AI Match Introduction**: When a matchmaker clicks "Send Match", Gemini drafts a warm, personalized introduction email using both profiles' data.
-
-## Assumptions
-- Matchmakers authenticate via JWT to access the dashboard.
-- Users of this system are strictly internal consultants, not the end clients.
-- "Stitch UI" aesthetics imply a premium, modern, clean SaaS interface (using Slate, Purple, and Rose Gold accents).
-
-## Sample Credentials
-After running the seed script, you can log in with any of the 20 generated matchmaker accounts:
-- **Username**: `matchmaker1`
-- **Password**: `password123`
+## Tech Stack
+* **Frontend:** React + Vite, Tailwind CSS v4, React Router DOM, Axios
+* **Backend:** Node.js, Express.js, MongoDB Atlas (Mongoose)
+* **Authentication:** JWT (JSON Web Tokens)
+* **AI Integration:** Google Gemini API (2.5-Flash)
 
 ---
 
-## Setup Instructions
+## The Matchmaking Pipeline (Hybrid Architecture)
+
+This project features a highly robust matching engine specifically tuned for the Indian matrimonial space. It uses a **Two-Way Hybrid Local + AI Pipeline** to ensure scalability, accuracy, and fairness.
+
+### Step 1: Pre-Screening & DB Filter
+When a matchmaker clicks "Run Engine" for a specific client, the backend first queries the database for all opposite-gender profiles who have an active status (`Searching` or `New Lead`). 
+
+### Step 2: The Two-Way Local Algorithm
+To save AI tokens and prevent latency/hallucinations, the system runs a deterministic 10-dimension local algorithm on the filtered pool.
+It calculates **reciprocal compatibility**:
+`Final Local Score = (Score: Target -> Candidate + Score: Candidate -> Target) / 2`
+
+**The 10 Dimensions Evaluated:**
+1. **Dealbreakers:** Instantly filters out conflicting views on having kids or extreme dietary friction (e.g., Veg vs Non-Veg).
+2. **Religion (14 pts) & Caste (8 pts):** High-priority cultural filters.
+3. **Age (16 pts):** Gender-directional scoring (rewards traditional 2-4 year age gaps but softened for progressive couples).
+4. **Income (12 pts):** Parity-friendly logic that doesn't over-punish high-earning women.
+5. **Education (7 pts):** Directional tier matching (High School → PhD).
+6. **Height (7 pts):** Includes a soft-floor so tall women aren't automatically excluded.
+7. **Family Values (14 pts):** Alignment on joint/nuclear family setups and marital history.
+8. **Lifestyle (14 pts):** Diet, Smoking, Drinking, and overlapping Hobby calculations.
+9. **Location (6 pts):** Current city and willingness to relocate.
+
+### Step 3: AI Ranking & Tie-Breaking
+The local engine isolates the **Top 10 Matches**. Only these 10 profiles (stripped of heavy metadata) are sent to the Google Gemini API.
+* Gemini acts as an executive matchmaker, analyzing the pairs.
+* It returns an AI Score and a personalized 1-sentence reasoning.
+* **Final Blend:** The ultimate score is `90% Local Algo + 10% AI Score`. This prevents AI hallucinations from ruining solid matches, while keeping the AI's personalized reasoning for the UI.
+
+### Step 4: AI Fallbacks
+If the Gemini API hits a rate limit (429) or goes down, the backend gracefully catches the error and seamlessly falls back to 100% Local Engine scoring, meaning the UI never breaks.
+
+---
+
+## Features & User Flow
+
+1. **Secure Login:** Matchmakers log in using secure credentials. (e.g., `matchmaker1` / `password123`).
+2. **Dashboard Overview:** Displays high-level funnel metrics, active matches, and new leads.
+3. **Customer CRM:** A searchable, filterable list of all clients.
+4. **Detailed Profile View:** 
+   * Complete Biodata.
+   * Auto-generated AI Profile Summaries.
+   * A persistent Notes section for consultants to log calls/updates.
+5. **Match Suggestion Panel:**
+   * Runs the engine and displays the Top 10 candidates.
+   * Features animated progress bars breaking down the score for each dimension (Green=Strong, Gold=Moderate, Grey=Weak).
+6. **Review & Send Match:**
+   * Matchmakers can click into a match to see a side-by-side photo comparison.
+   * Triggers an AI Compatibility Analysis (Strengths & Considerations).
+   * Generates a personalized introductory email draft that the matchmaker can send to both parties.
+
+---
+
+## Setup & Installation
 
 ### Prerequisites
-- Node.js (v18+)
-- MongoDB Atlas URI
-- Google Gemini API Key
+* Node.js (v18+)
+* MongoDB Atlas Cluster URI
+* Google Gemini API Key
 
-### 1. Backend Setup
+### 1. Clone & Install
 ```bash
+# Install backend dependencies
 cd backend
 npm install
+
+# Install frontend dependencies
+cd ../frontend
+npm install
 ```
-Create a `.env` file in the `backend` directory:
-```
+
+### 2. Environment Variables
+Create a `.env` file in the `backend/` directory:
+```env
 PORT=5000
-MONGODB_URI=your_mongodb_connection_string
-JWT_SECRET=your_jwt_secret
+MONGO_URI=your_mongodb_connection_string
+JWT_SECRET=your_jwt_secret_key
 GEMINI_API_KEY=your_gemini_api_key
 ```
 
-Run the Seed Script to populate the DB with 20 matchmakers and 200 dummy profiles:
+### 3. Seed the Database
+To test the matching engine, you need realistic data. Run the seed script to generate 20 matchmaker accounts and 200 diverse customer profiles:
 ```bash
+cd backend
 node seed.js
 ```
 
-Start the Backend server:
+### 4. Run the Application
+You need to run both the frontend and backend servers simultaneously.
+
+**Terminal 1 (Backend):**
 ```bash
+cd backend
 npm run dev
 ```
 
-### 2. Frontend Setup
+**Terminal 2 (Frontend):**
 ```bash
 cd frontend
-npm install
-```
-Start the Frontend development server:
-```bash
 npm run dev
 ```
 
----
-
-## Deployment Guide
-
-### Backend (Render)
-1. Push the repository to GitHub.
-2. On Render, create a new "Web Service" and connect the repository.
-3. Set the Root Directory to `backend`.
-4. Build Command: `npm install`
-5. Start Command: `node server.js`
-6. Add the Environment Variables (`MONGODB_URI`, `JWT_SECRET`, `GEMINI_API_KEY`).
-
-### Frontend (Vercel)
-1. On Vercel, create a new Project and import the repository.
-2. Set the Framework Preset to Vite.
-3. Set the Root Directory to `frontend`.
-4. Add the Environment Variable for your backend API if you changed the Axios baseURL (e.g., `VITE_API_URL`).
-5. Deploy.
+### 5. Access
+Open your browser and navigate to `http://localhost:5173`.
+Login using:
+* **Username:** `matchmaker1`
+* **Password:** `password123`
